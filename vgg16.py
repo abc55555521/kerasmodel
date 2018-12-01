@@ -102,20 +102,6 @@ train_datagen = ImageDataGenerator(
 # callbacks = [tb]
 
 
-# def show_acc_img(H, path=r"data/plt.png"):
-#     plt.style.use("ggplot")
-#     plt.figure()
-#     N = EPOCHS_SIZE
-#     plt.plot(np.arange(0, N), H.history["loss"], label="train_loss")
-#     plt.plot(np.arange(0, N), H.history["val_loss"], label="val_loss")
-#     plt.plot(np.arange(0, N), H.history["acc"], label="train_acc")
-#     plt.plot(np.arange(0, N), H.history["val_acc"], label="val_acc")
-#     plt.title("Training Loss and Accuracy on traffic-sign classifier")
-#     plt.xlabel("Epoch #")
-#     plt.ylabel("Loss/Accuracy")
-#     plt.legend(loc="lower left")
-#     plt.savefig(path)
-
 class LossHistory(Callback):
     def __init__(self):
         self.losses = {}
@@ -157,8 +143,10 @@ class LossHistory(Callback):
         plt.xlabel(loss_type)
         plt.ylabel('acc-loss')
         plt.legend(loc="upper right")
-        plt.show()
+        # 在 plt.show() 后调用了 plt.savefig() ，在 plt.show() 后实际上已经创建了一个新的空白的图片（坐标轴），这时候你再 plt.savefig() 就会保存这个新生成的空白图片
+        # plt.savefig 一定要在plt.show之前调用
         plt.savefig("data/loss.png")
+        plt.show()
 
 
 
@@ -177,7 +165,8 @@ val_set = load_image(path, val_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
 val_label0, val_label1 = label2vec(val_label)
 print("准备损失函数图像")
 history = LossHistory()
-#tensorboard --logdir=r'E:\code\Python3\machine_learnin\kerasmodel\data\TensorBoard'
+#windows上执行以下命令日志路径要用双引号，否则读取不到
+#tensorboard --logdir="E:\code\Python3\machine_learnin\kerasmodel\data\TensorBoard"
 callback = [history, TensorBoard(log_dir='data/TensorBoard')]
 print("训练开始")
 model.fit_generator(train_datagen.flow(train_set, train_label1, batch_size=BATCH_SIZE),
