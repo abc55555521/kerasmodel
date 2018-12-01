@@ -1,0 +1,173 @@
+# from keras.callbacks import TensorBoard
+import cv2
+import tensorflow as tf
+from sklearn.preprocessing import LabelEncoder
+import pandas as pd
+import os
+from keras.utils import to_categorical
+import numpy as np
+from sklearn.model_selection import train_test_split
+from keras.preprocessing.image import ImageDataGenerator
+from keras.applications.vgg16 import VGG16
+from keras.layers import Flatten, Dense, Dropout
+from keras.models import Model
+from keras.optimizers import SGD
+import matplotlib.pyplot as plt
+
+
+IMAGE_SIZE = 64
+EPOCHS_SIZE = 2
+BATCH_SIZE = 32
+
+path = r'data\train_data'
+a = pd.read_csv(r'data\train.csv')
+filesname = a['filename']
+test_path = r'data\test_data'
+b = pd.read_csv(r'data\test.csv')
+t_filesname = b['filename']
+
+labels = a['label']
+encoder = LabelEncoder()
+encoder.fit(labels)
+
+
+# 图片读取
+def load_image(path, filesname, height, width, channels):
+    images = []
+    for image_name in filesname:
+        image = cv2.imread(os.path.join(path, image_name))
+        image = cv2.resize(image, (height, width))
+        images.append(image / 255.0)
+    images = np.array(images)
+    images = images.reshape([-1, height, width, channels])
+    return images
+
+
+# one hot label
+def label2vec(labels):
+    labels1 = encoder.transform(labels)
+    one_hot_labels1 = to_categorical(labels1, num_classes=102)
+    return labels1, one_hot_labels1
+
+
+# one hot coding 转回字符串label
+def vec2label(label_vec):
+    label = encoder.inverse_transform(label_vec)
+    return label
+
+
+# 划分训练集和测试集
+def make_train_and_val_set(dataset, labels, test_size):
+    train_set, val_set, train_label, val_label = train_test_split(dataset, labels,
+                                                                  test_size=test_size, random_state=5)
+    return train_set, val_set, train_label, val_label
+
+
+# 模型构建
+def build_model():
+    model_vgg = VGG16(include_top=False, weights="imagenet", input_shape=[IMAGE_SIZE, IMAGE_SIZE, 3])
+    for layer in model_vgg.layers:
+        layer.trainable = False
+    model_self = Flatten(name='flatten')(model_vgg.output)
+    model_self = Dense(4096, activation='relu', name='fc1')(model_self)
+    model_self = Dense(4096, activation='relu', name='fc2')(model_self)
+    model_self = Dropout(0.5)(model_self)
+    model_self = Dense(102, activation='softmax')(model_self)
+    model_vgg_102 = Model(input=model_vgg.input, output=model_self, name='vgg16')
+    model_vgg_102.summary()
+    return model_vgg_102
+
+
+# 数据增强
+train_datagen = ImageDataGenerator(
+    # rotation_range=15,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    shear_range=0.1,
+    zoom_range=0.1,
+    horizontal_flip=True,
+    fill_mode='nearest'
+)
+
+# tb = TensorBoard(log_dir='./logs',  # log 目录
+#                  histogram_freq=1,  # 按照何等频率（epoch）来计算直方图，0为不计算
+#                  batch_size=32,     # 用多大量的数据计算直方图
+#                  write_graph=True,  # 是否存储网络结构图
+#                  write_grads=False, # 是否可视化梯度直方图
+#                  write_images=False,# 是否可视化参数
+#                  embeddings_freq=0,
+#                  embeddings_layer_names=None,
+#                  embeddings_metadata=None)
+# callbacks = [tb]
+
+
+def show_acc_img(H,path=r"data/plt.png"):
+    plt.style.use("ggplot")
+    plt.figure()
+    N = EPOCHS_SIZE
+    plt.plot(np.arange(0, N), H.history["loss"], label="train_loss")
+    plt.plot(np.arange(0, N), H.history["val_loss"], label="val_loss")
+    plt.plot(np.arange(0, N), H.history["acc"], label="train_acc")
+    plt.plot(np.arange(0, N), H.history["val_acc"], label="val_acc")
+    plt.title("Training Loss and Accuracy on traffic-sign classifier")
+    plt.xlabel("Epoch #")
+    plt.ylabel("Loss/Accuracy")
+    plt.legend(loc="lower left")
+    plt.savefig(path)
+
+
+print("划分训练集和测试集")
+train_set_name, val_set_name, train_label, val_label = make_train_and_val_set(filesname, labels, 0.2)
+
+
+model = build_model()
+sgd = SGD(lr=0.1, decay=1e-5)
+model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+print("加载训练图片")
+train_set = load_image(path, train_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
+train_label0, train_label1 = label2vec(train_label)
+val_set = load_image(path, val_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
+val_label0, val_label1 = label2vec(val_label)
+print("训练开始")
+model.fit_generator(train_datagen.flow(train_set, train_label1, batch_size=BATCH_SIZE),
+                    steps_per_epoch=len(train_set) // BATCH_SIZE, epochs=EPOCHS_SIZE,
+                    validation_data=(val_set, val_label1))
+
+print("训练结束")
+print("绘制图像")
+show_acc_img(model)
+#保存模型
+print("保存模型开始")
+model.save('model7.h5')
+print("保存模型结束")
+#model = keras.models.load_model('demo/model1.h5')
+
+
+print("加载测试图片")
+test_set = load_image(test_path, t_filesname, IMAGE_SIZE, IMAGE_SIZE, 3)
+# print(len(test_set))
+# # test_set *= 255
+# t_labels0,t_labels1 = label2vec(t_labels)
+print("预测测试集开始")
+test_preds = model.predict(test_set)
+print("预测测试集结束")
+print(test_preds)
+
+
+def get_top_k_label(preds, k=1):
+    top_k = tf.nn.top_k(preds, k).indices
+    with tf.Session() as sess:
+        top_k = sess.run(top_k)
+    top_k_label = vec2label(top_k)
+    return top_k_label
+
+
+predslabel = get_top_k_label(test_preds, 5)
+
+submit = pd.DataFrame({'fliesname': t_filesname, 'pred1': predslabel[:, 0],
+                       'pred2': predslabel[:, 1], 'pred3': predslabel[:, 2],
+                       'pred4': predslabel[:, 3], 'pred5': predslabel[:, 4]})
+print("保存预测结果")
+submit.to_csv(r'data\submit.csv', index=False)
+print("保存完毕")
+print("end")
