@@ -14,11 +14,14 @@ from keras.optimizers import SGD
 import matplotlib.pyplot as plt
 from keras.callbacks import Callback
 from keras.callbacks import TensorBoard
+from keras.preprocessing.image import img_to_array
+from keras.optimizers import Adam
 
 
 IMAGE_SIZE = 64
 EPOCHS_SIZE = 2
 BATCH_SIZE = 32
+INIT_LR = 1e-3
 
 path = r'data\train_data'
 a = pd.read_csv(r'data\train.csv')
@@ -38,9 +41,10 @@ def load_image(path, filesname, height, width, channels):
     for image_name in filesname:
         image = cv2.imread(os.path.join(path, image_name))
         image = cv2.resize(image, (height, width))
-        images.append(image / 255.0)
-    images = np.array(images)
-    images = images.reshape([-1, height, width, channels])
+        images.append(img_to_array(image))
+    images = np.array(images, dtype="float") / 255.0
+    images = np.expand_dims(images, axis=0)
+    # images = images.reshape([-1, height, width, channels])
     return images
 
 
@@ -62,6 +66,14 @@ def make_train_and_val_set(dataset, labels, test_size):
     train_set, val_set, train_label, val_label = train_test_split(dataset, labels,
                                                                   test_size=test_size, random_state=5)
     return train_set, val_set, train_label, val_label
+
+# 取预测值的前k位
+def get_top_k_label(preds, k=1):
+    top_k = tf.nn.top_k(preds, k).indices
+    with tf.Session() as sess:
+        top_k = sess.run(top_k)
+    top_k_label = vec2label(top_k)
+    return top_k_label
 
 
 # 模型构建
@@ -90,16 +102,15 @@ train_datagen = ImageDataGenerator(
     fill_mode='nearest'
 )
 
-# tb = TensorBoard(log_dir='./logs',  # log 目录
-#                  histogram_freq=1,  # 按照何等频率（epoch）来计算直方图，0为不计算
-#                  batch_size=32,     # 用多大量的数据计算直方图
-#                  write_graph=True,  # 是否存储网络结构图
-#                  write_grads=False, # 是否可视化梯度直方图
-#                  write_images=False,# 是否可视化参数
-#                  embeddings_freq=0,
-#                  embeddings_layer_names=None,
-#                  embeddings_metadata=None)
-# callbacks = [tb]
+tb = TensorBoard(log_dir='data/TensorBoard/logs_self',  # log 目录
+                 histogram_freq=1,  # 按照何等频率（epoch）来计算直方图，0为不计算
+                 batch_size=32,     # 用多大量的数据计算直方图
+                 write_graph=True,  # 是否存储网络结构图
+                 write_grads=False, # 是否可视化梯度直方图
+                 write_images=False,# 是否可视化参数
+                 embeddings_freq=0,
+                 embeddings_layer_names=None,
+                 embeddings_metadata=None)
 
 
 class LossHistory(Callback):
@@ -149,66 +160,56 @@ class LossHistory(Callback):
         plt.show()
 
 
+if __name__ == '__main__':
+    print("划分训练集和测试集")
+    train_set_name, val_set_name, train_label, val_label = make_train_and_val_set(filesname, labels, 0.2)
+    print("加载训练集图片")
+    train_set = load_image(path, train_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
+    train_label0, train_label1 = label2vec(train_label)
+    print("加载验证集图片")
+    val_set = load_image(path, val_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
+    val_label0, val_label1 = label2vec(val_label)
+    print("准备损失函数图像")
+    history = LossHistory()
+    # windows上执行以下命令日志路径要用双引号，否则读取不到
+    # tensorboard --logdir="E:\code\Python3\machine_learnin\kerasmodel\data\TensorBoard\logs"
+    callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
+    print("创建模型")
+    model = build_model()
+    #opt = SGD(lr=0.1, decay=1e-5)
+    opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
+    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    print("训练开始")
+    model.fit_generator(train_datagen.flow(train_set, train_label1, batch_size=BATCH_SIZE),
+                        steps_per_epoch=len(train_set) // BATCH_SIZE, epochs=EPOCHS_SIZE,
+                        validation_data=(val_set, val_label1), callbacks=callback)
 
-print("划分训练集和测试集")
-train_set_name, val_set_name, train_label, val_label = make_train_and_val_set(filesname, labels, 0.2)
+    print("训练结束")
+    print("绘制损失函数图像")
+    history.loss_plot('epoch')
 
+    # 保存模型
+    print("保存模型开始")
+    model.save('model7.h5')
+    print("保存模型结束")
+    # model = keras.models.load_model('demo/model1.h5')
 
-model = build_model()
-sgd = SGD(lr=0.1, decay=1e-5)
-model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
-print("加载训练集图片")
-train_set = load_image(path, train_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
-train_label0, train_label1 = label2vec(train_label)
-print("加载验证集图片")
-val_set = load_image(path, val_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
-val_label0, val_label1 = label2vec(val_label)
-print("准备损失函数图像")
-history = LossHistory()
-#windows上执行以下命令日志路径要用双引号，否则读取不到
-#tensorboard --logdir="E:\code\Python3\machine_learnin\kerasmodel\data\TensorBoard"
-callback = [history, TensorBoard(log_dir='data/TensorBoard')]
-print("训练开始")
-model.fit_generator(train_datagen.flow(train_set, train_label1, batch_size=BATCH_SIZE),
-                    steps_per_epoch=len(train_set) // 1000, epochs=EPOCHS_SIZE,
-                    validation_data=(val_set, val_label1), callbacks=callback)
+    print("加载测试图片")
+    test_set = load_image(test_path, t_filesname, IMAGE_SIZE, IMAGE_SIZE, 3)
+    # print(len(test_set))
+    # # test_set *= 255
+    # t_labels0,t_labels1 = label2vec(t_labels)
+    print("预测测试集开始")
+    test_preds = model.predict(test_set)
+    print("预测测试集结束")
+    print(test_preds)
 
-print("训练结束")
-print("绘制损失函数图像")
-history.loss_plot('epoch')
+    predslabel = get_top_k_label(test_preds, 5)
 
-#保存模型
-print("保存模型开始")
-model.save('model7.h5')
-print("保存模型结束")
-#model = keras.models.load_model('demo/model1.h5')
-
-
-print("加载测试图片")
-test_set = load_image(test_path, t_filesname, IMAGE_SIZE, IMAGE_SIZE, 3)
-# print(len(test_set))
-# # test_set *= 255
-# t_labels0,t_labels1 = label2vec(t_labels)
-print("预测测试集开始")
-test_preds = model.predict(test_set)
-print("预测测试集结束")
-print(test_preds)
-
-
-def get_top_k_label(preds, k=1):
-    top_k = tf.nn.top_k(preds, k).indices
-    with tf.Session() as sess:
-        top_k = sess.run(top_k)
-    top_k_label = vec2label(top_k)
-    return top_k_label
-
-
-predslabel = get_top_k_label(test_preds, 5)
-
-submit = pd.DataFrame({'fliesname': t_filesname, 'pred1': predslabel[:, 0],
-                       'pred2': predslabel[:, 1], 'pred3': predslabel[:, 2],
-                       'pred4': predslabel[:, 3], 'pred5': predslabel[:, 4]})
-print("保存预测结果")
-submit.to_csv(r'data\submit.csv', index=False)
-print("保存完毕")
-print("end")
+    submit = pd.DataFrame({'fliesname': t_filesname, 'pred1': predslabel[:, 0],
+                           'pred2': predslabel[:, 1], 'pred3': predslabel[:, 2],
+                           'pred4': predslabel[:, 3], 'pred5': predslabel[:, 4]})
+    print("保存预测结果")
+    submit.to_csv(r'data\submit.csv', index=False)
+    print("保存完毕")
+    print("end")
