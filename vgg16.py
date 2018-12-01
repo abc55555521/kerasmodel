@@ -73,7 +73,7 @@ def build_model():
     model_self = Dense(4096, activation='relu', name='fc2')(model_self)
     model_self = Dropout(0.5)(model_self)
     model_self = Dense(102, activation='softmax')(model_self)
-    model_vgg_102 = Model(input=model_vgg.input, output=model_self, name='vgg16')
+    model_vgg_102 = Model(inputs=model_vgg.input, output=model_self, name='vgg16')
     model_vgg_102.summary()
     return model_vgg_102
 
@@ -101,7 +101,7 @@ train_datagen = ImageDataGenerator(
 # callbacks = [tb]
 
 
-def show_acc_img(H,path=r"data/plt.png"):
+def show_acc_img(H, path=r"data/plt.png"):
     plt.style.use("ggplot")
     plt.figure()
     N = EPOCHS_SIZE
