@@ -1,4 +1,3 @@
-# from keras.callbacks import TensorBoard
 import cv2
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
@@ -13,6 +12,8 @@ from keras.layers import Flatten, Dense, Dropout
 from keras.models import Model
 from keras.optimizers import SGD
 import matplotlib.pyplot as plt
+from keras.callbacks import Callback
+from keras.callbacks import TensorBoard
 
 
 IMAGE_SIZE = 64
@@ -73,7 +74,7 @@ def build_model():
     model_self = Dense(4096, activation='relu', name='fc2')(model_self)
     model_self = Dropout(0.5)(model_self)
     model_self = Dense(102, activation='softmax')(model_self)
-    model_vgg_102 = Model(inputs=model_vgg.input, output=model_self, name='vgg16')
+    model_vgg_102 = Model(inputs=model_vgg.input, outputs=model_self, name='vgg16')
     model_vgg_102.summary()
     return model_vgg_102
 
@@ -101,19 +102,64 @@ train_datagen = ImageDataGenerator(
 # callbacks = [tb]
 
 
-def show_acc_img(H, path=r"data/plt.png"):
-    plt.style.use("ggplot")
-    plt.figure()
-    N = EPOCHS_SIZE
-    plt.plot(np.arange(0, N), H.history["loss"], label="train_loss")
-    plt.plot(np.arange(0, N), H.history["val_loss"], label="val_loss")
-    plt.plot(np.arange(0, N), H.history["acc"], label="train_acc")
-    plt.plot(np.arange(0, N), H.history["val_acc"], label="val_acc")
-    plt.title("Training Loss and Accuracy on traffic-sign classifier")
-    plt.xlabel("Epoch #")
-    plt.ylabel("Loss/Accuracy")
-    plt.legend(loc="lower left")
-    plt.savefig(path)
+# def show_acc_img(H, path=r"data/plt.png"):
+#     plt.style.use("ggplot")
+#     plt.figure()
+#     N = EPOCHS_SIZE
+#     plt.plot(np.arange(0, N), H.history["loss"], label="train_loss")
+#     plt.plot(np.arange(0, N), H.history["val_loss"], label="val_loss")
+#     plt.plot(np.arange(0, N), H.history["acc"], label="train_acc")
+#     plt.plot(np.arange(0, N), H.history["val_acc"], label="val_acc")
+#     plt.title("Training Loss and Accuracy on traffic-sign classifier")
+#     plt.xlabel("Epoch #")
+#     plt.ylabel("Loss/Accuracy")
+#     plt.legend(loc="lower left")
+#     plt.savefig(path)
+
+class LossHistory(Callback):
+    def __init__(self):
+        self.losses = {}
+        self.accuracy = {}
+        self.val_loss = {}
+        self.val_acc = {}
+
+    def on_train_begin(self, logs={}):
+        self.losses = {'batch': [], 'epoch': []}
+        self.accuracy = {'batch': [], 'epoch': []}
+        self.val_loss = {'batch': [], 'epoch': []}
+        self.val_acc = {'batch': [], 'epoch': []}
+
+    def on_batch_end(self, batch, logs={}):
+        self.losses['batch'].append(logs.get('loss'))
+        self.accuracy['batch'].append(logs.get('acc'))
+        self.val_loss['batch'].append(logs.get('val_loss'))
+        self.val_acc['batch'].append(logs.get('val_acc'))
+
+    def on_epoch_end(self, epoch, logs={}):
+        self.losses['epoch'].append(logs.get('loss'))
+        self.accuracy['epoch'].append(logs.get('acc'))
+        self.val_loss['epoch'].append(logs.get('val_loss'))
+        self.val_acc['epoch'].append(logs.get('val_acc'))
+
+    def loss_plot(self, loss_type):
+        iters = range(len(self.losses[loss_type]))
+        plt.figure()
+        # acc
+        plt.plot(iters, self.accuracy[loss_type], 'r', label='train acc')
+        # loss
+        plt.plot(iters, self.losses[loss_type], 'g', label='train loss')
+        if loss_type == 'epoch':
+            # val_acc
+            plt.plot(iters, self.val_acc[loss_type], 'b', label='val acc')
+            # val_loss
+            plt.plot(iters, self.val_loss[loss_type], 'k', label='val loss')
+        plt.grid(True)
+        plt.xlabel(loss_type)
+        plt.ylabel('acc-loss')
+        plt.legend(loc="upper right")
+        plt.show()
+        plt.savefig("data/loss.png")
+
 
 
 print("划分训练集和测试集")
@@ -123,19 +169,25 @@ train_set_name, val_set_name, train_label, val_label = make_train_and_val_set(fi
 model = build_model()
 sgd = SGD(lr=0.1, decay=1e-5)
 model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
-print("加载训练图片")
+print("加载训练集图片")
 train_set = load_image(path, train_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
 train_label0, train_label1 = label2vec(train_label)
+print("加载验证集图片")
 val_set = load_image(path, val_set_name, IMAGE_SIZE, IMAGE_SIZE, 3)
 val_label0, val_label1 = label2vec(val_label)
+print("准备损失函数图像")
+history = LossHistory()
+#tensorboard --logdir=r'E:\code\Python3\machine_learnin\kerasmodel\data\TensorBoard'
+callback = [history, TensorBoard(log_dir='data/TensorBoard')]
 print("训练开始")
 model.fit_generator(train_datagen.flow(train_set, train_label1, batch_size=BATCH_SIZE),
-                    steps_per_epoch=len(train_set) // BATCH_SIZE, epochs=EPOCHS_SIZE,
-                    validation_data=(val_set, val_label1))
+                    steps_per_epoch=len(train_set) // 1000, epochs=EPOCHS_SIZE,
+                    validation_data=(val_set, val_label1), callbacks=callback)
 
 print("训练结束")
-print("绘制图像")
-show_acc_img(model)
+print("绘制损失函数图像")
+history.loss_plot('epoch')
+
 #保存模型
 print("保存模型开始")
 model.save('model7.h5')
