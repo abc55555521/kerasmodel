@@ -96,6 +96,7 @@ class pic_classify:
         self.INIT_LR = 1e-3
         self.DECAY = 1e-5
         self.MOMENTUM = 0.9
+        self.FREEZE_LAYER = 5
         self.MODELS = {
             "vgg16": VGG16,
             "vgg19": VGG19,
@@ -131,7 +132,7 @@ class pic_classify:
         self.path = r'data\train_data'
         a = pd.read_csv(r'data\train.csv')
         self.filesname = a['filename']
-        test_path = r'data\test_data'
+        self.test_path = r'data\test_data'
         b = pd.read_csv(r'data\test.csv')
         self.t_filesname = b['filename']
 
@@ -186,8 +187,11 @@ class pic_classify:
                            classes=self.CLASSIFY)
 
         # 冻结base_model所有层，这样就可以正确获得bottleneck特征
+        layer_index = 1
         for layer in base_model.layers:
-            layer.trainable = False
+            if layer_index < self.FREEZE_LAYER + 1:
+                layer.trainable = False
+            layer_index += 1
 
         x = base_model.output
         # 添加自己的全链接分类层
@@ -214,8 +218,11 @@ class pic_classify:
                                  classes=self.CLASSIFY)
 
         # 冻结base_model所有层，这样就可以正确获得bottleneck特征
-        for layer in base_model.layers:
-            layer.trainable = False
+        # layer_index = 1
+        # for layer in base_model.layers:
+        #     if layer_index < self.FREEZE_LAYER + 1:
+        #         layer.trainable = False
+        #     layer_index += 1
 
         x = base_model.output
         # 添加自己的全链接分类层
@@ -238,19 +245,22 @@ class pic_classify:
 
     # ResNet模型
     def ResNet50_model(self, input_shape, is_plot_model=True):
-        base_model = ResNet50(weights='imagenet', include_top=False, pooling=None, input_shape=input_shape,
+        base_model = ResNet50(weights='imagenet', include_top=False, pooling='avg', input_shape=input_shape,
                               classes=self.CLASSIFY)
 
         # 冻结base_model所有层，这样就可以正确获得bottleneck特征
-        for layer in base_model.layers:
-            layer.trainable = False
+        # layer_index = 1
+        # for layer in base_model.layers:
+        #     if layer_index < self.FREEZE_LAYER + 1:
+        #         layer.trainable = False
+        #     layer_index += 1
 
         x = base_model.output
         # 添加自己的全链接分类层
-        x = Flatten()(x)
-        x = GlobalAveragePooling2D()(x)
-        x = Dense(1024, activation='relu')(x)
-        predictions = Dense(self.CLASSIFY, activation='softmax')(x)
+        model_self = Flatten()(x)
+        #x = GlobalAveragePooling2D()(x)
+        model_self = Dense(1024, activation='relu')(model_self)
+        predictions = Dense(self.CLASSIFY, activation='softmax')(model_self)
 
         # 训练模型
         model = Model(inputs=base_model.input, outputs=predictions)
@@ -265,7 +275,7 @@ class pic_classify:
 
     # 训练模型
     def train_model(self, model, epochs, train_generator, steps_per_epoch, validation_data,
-                    model_save_url, img_save_path, callback, is_load_model=False):
+                    model_save_url, img_save_path, callbacks, is_load_model=False):
         # 载入模型
         if is_load_model and os.path.exists(model_save_url):
             model = load_model(model_save_url)
@@ -275,7 +285,7 @@ class pic_classify:
             steps_per_epoch=steps_per_epoch,
             epochs=epochs,
             validation_data=validation_data,
-            callback=callback)
+            callbacks=callbacks)
         # 模型保存
         print("保存模型开始")
         model.save(model_save_url, overwrite=True)
@@ -325,47 +335,48 @@ if __name__ == '__main__':
     val_label0, val_label1 = transfer.label2vec(val_label)
     print("准备损失函数图像")
 
-    callback = [transfer.history, transfer.tb, TensorBoard(log_dir='data/TensorBoard/logs')]
+    callbacks = [transfer.history, transfer.tb, TensorBoard(log_dir='data/TensorBoard/logs')]
 
     generator = transfer.train_datagen.flow(train_set, train_label1, batch_size=transfer.BATCH_SIZE)
 
     # VGG19
-    print("创建模型")
-    model_save_path = 'vgg19_model.h5'
-    img_save_path = "data/submit/vgg19_acc_loss.png"
-    predict_path = "data/submit/vgg19_submit.csv"
-    model = transfer.VGG19_model(input_shape=(transfer.IMAGE_SIZE, transfer.IMAGE_SIZE, 3), is_plot_model=False)
-    print("训练开始")
-    model = transfer.train_model(model, transfer.EPOCHS_SIZE, generator,
-                                 steps_per_epoch=len(train_set) // transfer.BATCH_SIZE,
-                                 validation_data=(val_set, val_label1), callbacks=callback,
-                                 model_save_url=model_save_path, img_save_path=img_save_path, is_load_model=False)
-    print("训练结束")
+    # print("创建VGG19模型")
+    # model_save_path = 'vgg19_model.h5'
+    # img_save_path = "data/submit/vgg19_acc_loss.png"
+    # predict_path = "data/submit/vgg19_submit.csv"
+    # model = transfer.VGG19_model(input_shape=(transfer.IMAGE_SIZE, transfer.IMAGE_SIZE, 3), is_plot_model=True)
+    # print("训练开始")
+    # model = transfer.train_model(model, transfer.EPOCHS_SIZE, generator,
+    #                              steps_per_epoch=len(train_set) // transfer.BATCH_SIZE,
+    #                              validation_data=(val_set, val_label1), callbacks=callbacks,
+    #                              model_save_url=model_save_path, img_save_path=img_save_path, is_load_model=False)
+    # print("训练结束")
 
     # ResNet50
-    print("创建模型")
+    print("创建ResNet50模型")
     model_save_path = 'data/submit/resnet50_model.h5'
     img_save_path = "data/submit/resnet50_acc_loss.png"
     predict_path = "data/submit/resnet50_submit.csv"
-    model = transfer.ResNet50_model(input_shape=(transfer.IMAGE_SIZE, transfer.IMAGE_SIZE, 3), is_plot_model=False)
-    print("训练开始")
+    model = transfer.ResNet50_model(input_shape=(transfer.IMAGE_SIZE, transfer.IMAGE_SIZE, 3), is_plot_model=True)
+    print("训练ResNet50模型开始")
     model = transfer.train_model(model, transfer.EPOCHS_SIZE, generator,
                                  steps_per_epoch=len(train_set) // transfer.BATCH_SIZE,
-                                 validation_data=(val_set, val_label1), callbacks=callback,
+                                 validation_data=(val_set, val_label1), callbacks=callbacks,
                                  model_save_url=model_save_path, img_save_path=img_save_path, is_load_model=False)
-    print("训练结束")
+    print("训练ResNet50模型结束")
+
     # InceptionV3
-    print("创建模型")
-    model_save_path = 'data/submit/inceptionV3_model.h5'
-    img_save_path = "data/submit/inceptionV3_acc_loss.png"
-    predict_path = "data/submit/inceptionV3_submit.csv"
-    model = transfer.InceptionV3_model(input_shape=(transfer.IMAGE_SIZE, transfer.IMAGE_SIZE, 3), is_plot_model=True)
-    print("训练开始")
-    model = transfer.train_model(model, transfer.EPOCHS_SIZE, generator,
-                                 steps_per_epoch=len(train_set) // transfer.BATCH_SIZE,
-                                 validation_data=(val_set, val_label1), callbacks=callback,
-                                 model_save_url=model_save_path, img_save_path=img_save_path, is_load_model=False)
-    print("训练结束")
+    # print("创建InceptionV3模型")
+    # model_save_path = 'data/submit/inceptionV3_model.h5'
+    # img_save_path = "data/submit/inceptionV3_acc_loss.png"
+    # predict_path = "data/submit/inceptionV3_submit.csv"
+    # model = transfer.InceptionV3_model(input_shape=(transfer.IMAGE_SIZE, transfer.IMAGE_SIZE, 3), is_plot_model=True)
+    # print("训练InceptionV3模型开始")
+    # model = transfer.train_model(model, transfer.EPOCHS_SIZE, generator,
+    #                              steps_per_epoch=len(train_set) // transfer.BATCH_SIZE,
+    #                              validation_data=(val_set, val_label1), callbacks=callbacks,
+    #                              model_save_url=model_save_path, img_save_path=img_save_path, is_load_model=False)
+    # print("训练InceptionV3模型结束")
 
 
     print("加载测试集")
