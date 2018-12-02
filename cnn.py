@@ -1,5 +1,6 @@
 from keras.layers import Conv2D, Flatten, MaxPooling2D, Dense, Dropout
 import cv2
+import keras
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 import pandas as pd
@@ -46,7 +47,7 @@ def make_train_and_val_set(dataset,labels,test_size):
 train_set_name,val_set_name,train_label,val_label = make_train_and_val_set(filesname,labels,0.2)
 #模型构建
 def build_model():
-    model = kerasmodel.Sequential()
+    model = keras.Sequential()
     model.add(Conv2D(32, kernel_size=3, activation='relu', input_shape=[IMAGE_SIZE, IMAGE_SIZE, 3],
                      data_format='channels_last', name='conv1'))
     model.add(MaxPooling2D(pool_size=2))
@@ -60,7 +61,7 @@ def build_model():
     model.add(Dense(1024, activation='relu'))
     model.add(Dropout(0.3, name='dropout3'))
     model.add(Dense(102, activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer=kerasmodel.optimizers.adam(), metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.adam(), metrics=['accuracy'])
     model.summary()
     return model
 #数据增强
