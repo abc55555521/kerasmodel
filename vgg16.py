@@ -18,10 +18,11 @@ from keras.preprocessing.image import img_to_array
 from keras.optimizers import Adam
 
 
-IMAGE_SIZE = 128
+IMAGE_SIZE = 64
 EPOCHS_SIZE = 30
 BATCH_SIZE = 32
-INIT_LR = 1e-3
+INIT_LR = 0.01
+FREEZE_LAYER = 10
 
 path = r'data\train_data'
 a = pd.read_csv(r'data\train.csv')
@@ -42,9 +43,11 @@ def load_image(path, filesname, height, width, channels):
         image = cv2.imread(os.path.join(path, image_name))
         image = cv2.resize(image, (height, width))
         images.append(img_to_array(image))
+        print("已加载:"+str(len(images))+"张图片")
     images = np.array(images, dtype="float") / 255.0
-    images = np.expand_dims(images, axis=0)
-    # images = images.reshape([-1, height, width, channels])
+    images = images.reshape([-1, height, width, channels])
+    #images = np.expand_dims(images, axis=0)
+    print(images.shape)
     return images
 
 
@@ -81,7 +84,7 @@ def build_model():
     model_vgg = VGG16(include_top=False, weights="imagenet", input_shape=[IMAGE_SIZE, IMAGE_SIZE, 3])
     layer_index = 1
     for layer in model_vgg.layers:
-        if layer_index < 4:
+        if layer_index < FREEZE_LAYER+1:
             layer.trainable = False
         layer_index += 1
     model_self = Flatten(name='flatten')(model_vgg.output)
@@ -179,8 +182,8 @@ if __name__ == '__main__':
     callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
     print("创建模型")
     model = build_model()
-    #opt = SGD(lr=0.1, decay=1e-5)
-    opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
+    opt = SGD(lr=INIT_LR, decay=1e-5)
+    #opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     print("训练开始")
     model.fit_generator(train_datagen.flow(train_set, train_label1, batch_size=BATCH_SIZE),
