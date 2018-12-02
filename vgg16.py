@@ -85,11 +85,11 @@ def get_top_k_label(preds, k=1):
 # 模型构建
 def build_model():
     model_vgg = VGG16(include_top=False, weights="imagenet", input_shape=[IMAGE_SIZE, IMAGE_SIZE, 3])
-    layer_index = 1
-    for layer in model_vgg.layers:
-        if layer_index < FREEZE_LAYER+1:
-            layer.trainable = False
-        layer_index += 1
+    # layer_index = 1
+    # for layer in model_vgg.layers:
+    #     if layer_index < FREEZE_LAYER+1:
+    #         layer.trainable = False
+    #     layer_index += 1
     model_self = Flatten(name='flatten')(model_vgg.output)
     model_self = Dense(4096, activation='relu', name='fc1')(model_self)
     model_self = Dense(4096, activation='relu', name='fc2')(model_self)
