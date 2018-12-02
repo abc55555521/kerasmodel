@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from keras.preprocessing.image import ImageDataGenerator
 from keras.applications.vgg16 import VGG16
 from keras.layers import Flatten, Dense, Dropout
-from keras.models import Model
+from keras.models import Model, load_model
 from keras.optimizers import SGD
 import matplotlib.pyplot as plt
 from keras.callbacks import Callback
@@ -19,11 +19,14 @@ from keras.optimizers import Adam
 
 
 IMAGE_SIZE = 64
-EPOCHS_SIZE = 30
+EPOCHS_SIZE = 5  # 30
 BATCH_SIZE = 32
-INIT_LR = 0.01
-FREEZE_LAYER = 10
+INIT_LR = 1e-3  # 0.01
+DECAY = 1e-5
+FREEZE_LAYER = 6
 
+is_load_model = True
+model_save_path = r'data\model_vgg16_FREEZE_LAYER6.h5'
 path = r'data\train_data'
 a = pd.read_csv(r'data\train.csv')
 filesname = a['filename']
@@ -182,7 +185,10 @@ if __name__ == '__main__':
     callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
     print("创建模型")
     model = build_model()
-    opt = SGD(lr=INIT_LR, decay=1e-5)
+    # 载入模型
+    if is_load_model and os.path.exists(model_save_path):
+        model = load_model(model_save_path)
+    opt = SGD(lr=INIT_LR, decay=DECAY)
     #opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     print("训练开始")
@@ -196,7 +202,7 @@ if __name__ == '__main__':
 
     # 保存模型
     print("保存模型开始")
-    model.save('model7.h5')
+    model.save(model_save_path)
     print("保存模型结束")
     # model = keras.models.load_model('demo/model1.h5')
 
