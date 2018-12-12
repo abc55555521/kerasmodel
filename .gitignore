@@ -117,3 +117,4 @@ dmypy.json
 .idea/modules.xml
 .idea/misc.xml
 .idea/kerasmodel.iml
+data/*.h5

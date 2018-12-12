@@ -7,28 +7,26 @@ from keras.utils import to_categorical
 import numpy as np
 from sklearn.model_selection import train_test_split
 from keras.preprocessing.image import ImageDataGenerator
-from keras.applications.vgg16 import VGG16
+from keras.applications.vgg19 import VGG19
 from keras.layers import Flatten, Dense, Dropout
 from keras.models import Model, load_model
 from keras.optimizers import SGD
 import matplotlib.pyplot as plt
 from keras.callbacks import Callback
 from keras.callbacks import TensorBoard
-from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import img_to_array
 from keras.optimizers import Adam
-from keras import regularizers
 
 
 IMAGE_SIZE = 64
-EPOCHS_SIZE = 5  # 30
+EPOCHS_SIZE = 5
 BATCH_SIZE = 32
-INIT_LR = 1e-3  # 0.01
+INIT_LR = 0.01 # 1e-3
 DECAY = 1e-5
-FREEZE_LAYER = 10
+FREEZE_LAYER = 17
 
 is_load_model = True
-model_save_path = r'data\model_vgg16_FREEZE_LAYER6.h5'
+model_save_path = r'data\model_vgg19.h5'
 path = r'data\train_data'
 a = pd.read_csv(r'data\train.csv')
 filesname = a['filename']
@@ -86,17 +84,17 @@ def get_top_k_label(preds, k=1):
 
 # 模型构建
 def build_model():
-    model_vgg = VGG16(include_top=False, weights="imagenet", input_shape=[IMAGE_SIZE, IMAGE_SIZE, 3])
+    model_vgg = VGG19(include_top=False, weights="imagenet", input_shape=[IMAGE_SIZE, IMAGE_SIZE, 3])
     layer_index = 1
     for layer in model_vgg.layers:
-        if layer_index < FREEZE_LAYER+1:
+        if layer_index <= FREEZE_LAYER:
             layer.trainable = False
         layer_index += 1
     model_self = Flatten(name='flatten')(model_vgg.output)
-    model_self = Dense(4096, activation='relu', name='fc1', kernel_regularizer=regularizers.l2(0.01),
-                       activity_regularizer=regularizers.l1(0.001))(model_self)
-    model_self = Dense(4096, activation='relu', name='fc2')(model_self)
+    model_self = Dense(4096, activation='relu', name='fc1')(model_self)
     model_self = Dropout(0.5)(model_self)
+    # model_self = Dense(4096, activation='relu', name='fc2')(model_self)
+    # model_self = Dropout(0.5)(model_self)
     model_self = Dense(102, activation='softmax')(model_self)
     model_vgg_102 = Model(inputs=model_vgg.input, outputs=model_self, name='vgg16')
     model_vgg_102.summary()
@@ -105,12 +103,13 @@ def build_model():
 
 # 数据增强
 train_datagen = ImageDataGenerator(
-    # rotation_range=15,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    shear_range=0.1,
-    zoom_range=0.1,
+    rotation_range=45,
+    width_shift_range=0.3,
+    height_shift_range=0.3,
+    shear_range=0.3,
+    zoom_range=0.3,
     horizontal_flip=True,
+    zca_whitening=True,
     fill_mode='nearest'
 )
 
@@ -185,18 +184,19 @@ if __name__ == '__main__':
     history = LossHistory()
     # windows上执行以下命令日志路径要用双引号，否则读取不到
     # tensorboard --logdir="E:\code\Python3\machine_learnin\kerasmodel\data\TensorBoard\logs"
-    earlyStopping = EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto')
-    callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs'), earlyStopping]
+    callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
     print("创建模型")
     model = build_model()
     # 载入模型
     if is_load_model and os.path.exists(model_save_path):
+        print("载入已有模型："+model_save_path)
         model = load_model(model_save_path)
     opt = SGD(lr=INIT_LR, decay=DECAY)
     #opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     print("训练开始")
-    steps_per_epoch = len(train_set) // BATCH_SIZE
+    steps_per_epoch = (len(train_set) + BATCH_SIZE - 1) // BATCH_SIZE
+    #steps_per_epoch = 50
     model.fit_generator(train_datagen.flow(train_set, train_label1, batch_size=BATCH_SIZE),
                         steps_per_epoch=steps_per_epoch, epochs=EPOCHS_SIZE,
                         validation_data=(val_set, val_label1), callbacks=callback)
