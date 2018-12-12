@@ -14,6 +14,7 @@ from keras.optimizers import SGD
 import matplotlib.pyplot as plt
 from keras.callbacks import Callback
 from keras.callbacks import TensorBoard
+from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import img_to_array
 from keras.optimizers import Adam
 from keras import regularizers
@@ -184,7 +185,8 @@ if __name__ == '__main__':
     history = LossHistory()
     # windows上执行以下命令日志路径要用双引号，否则读取不到
     # tensorboard --logdir="E:\code\Python3\machine_learnin\kerasmodel\data\TensorBoard\logs"
-    callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
+    earlyStopping = EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto')
+    callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs'), earlyStopping]
     print("创建模型")
     model = build_model()
     # 载入模型
