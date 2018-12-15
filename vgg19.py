@@ -17,16 +17,16 @@ from keras.callbacks import EarlyStopping
 from keras.callbacks import TensorBoard
 from keras.preprocessing.image import img_to_array
 from keras.optimizers import Adam
-
+from keras import regularizers
 
 IMAGE_SIZE = 64
-EPOCHS_SIZE = 5
+EPOCHS_SIZE = 30
 BATCH_SIZE = 32
 INIT_LR = 0.01 # 1e-3
 DECAY = 1e-5
-FREEZE_LAYER = 17
+FREEZE_LAYER = 5
 
-is_load_model = True
+is_load_model = False
 model_save_part_path = r'data\model_vgg19_'
 model_save_path = r'data\model_vgg19.h5'
 path = r'data\train_data'
@@ -65,8 +65,8 @@ def label2vec(labels):
 
 # one hot coding 转回字符串label
 def vec2label(label_vec):
-    label = encoder.inverse_transform([label_vec])
-    return label
+    label = encoder.inverse_transform(label_vec.flatten())
+    return label.reshape(-1, 5)
 
 
 # 划分训练集和测试集
@@ -87,14 +87,13 @@ def get_top_k_label(preds, k=1):
 # 模型构建
 def build_model():
     model_vgg = VGG19(include_top=False, weights="imagenet", input_shape=[IMAGE_SIZE, IMAGE_SIZE, 3])
-    layer_index = 1
-    for layer in model_vgg.layers:
+
+    for layer in model_vgg.layers[:-FREEZE_LAYER]:
         layer.trainable = False
-        # if layer_index <= FREEZE_LAYER:
-        #     layer.trainable = False
-        # layer_index += 1
+
     model_self = Flatten(name='flatten')(model_vgg.output)
-    model_self = Dense(1048, activation='relu', name='fc1')(model_self)
+    model_self = Dense(2048, activation='relu', name='fc1', kernel_regularizer=regularizers.l2(0.01),
+                       activity_regularizer=regularizers.l1(0.001))(model_self)
     model_self = Dropout(0.5)(model_self)
     # model_self = Dense(1048, activation='relu', name='fc2')(model_self)
     # model_self = Dropout(0.5)(model_self)
@@ -152,7 +151,7 @@ class LossHistory(Callback):
         self.val_loss['epoch'].append(logs.get('val_loss'))
         self.val_acc['epoch'].append(logs.get('val_acc'))
 
-    def loss_plot(self, loss_type):
+    def loss_plot(self, loss_type, loss_img_path="data/loss.png"):
         iters = range(len(self.losses[loss_type]))
         plt.figure()
         # acc
@@ -170,7 +169,7 @@ class LossHistory(Callback):
         plt.legend(loc="upper right")
         # 在 plt.show() 后调用了 plt.savefig() ，在 plt.show() 后实际上已经创建了一个新的空白的图片（坐标轴），这时候你再 plt.savefig() 就会保存这个新生成的空白图片
         # plt.savefig 一定要在plt.show之前调用
-        plt.savefig("data/loss.png")
+        plt.savefig(loss_img_path)
         plt.show()
 
 
@@ -199,8 +198,8 @@ if __name__ == '__main__':
     #opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 
-    for i in range(round(EPOCHS_SIZE/5)):
-        print("第" + str(i+1) + "个5轮epochs开始")
+    for i in range(round(EPOCHS_SIZE / 5)):
+        print("第" + str(i + 1) + "个5轮epochs开始")
         print("训练开始")
         steps_per_epoch = (len(train_set) + BATCH_SIZE - 1) // BATCH_SIZE
         model.fit_generator(train_datagen.flow(train_set, train_label1, batch_size=BATCH_SIZE),
@@ -208,8 +207,9 @@ if __name__ == '__main__':
                             validation_data=(val_set, val_label1), callbacks=callback)
 
         print("训练结束")
-        print("绘制损失函数图像")
-        history.loss_plot('epoch')
+        print("绘制第" + str(i + 1) + "张损失函数图像")
+        path = "data/loss" + str(i + 1) + ".png"
+        history.loss_plot('epoch', path)
 
         # 保存模型
         print("保存" + str(i+1) + "模型开始")
