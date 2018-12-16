@@ -7,9 +7,7 @@ from keras.utils import to_categorical
 import numpy as np
 from sklearn.model_selection import train_test_split
 from keras.preprocessing.image import ImageDataGenerator
-from keras.applications.vgg19 import VGG19
-from keras.layers import Flatten, Dense, Dropout
-from keras.models import Model, load_model
+from keras.models import load_model
 from keras.optimizers import SGD
 import matplotlib.pyplot as plt
 from keras.callbacks import Callback
@@ -17,18 +15,19 @@ from keras.callbacks import EarlyStopping
 from keras.callbacks import TensorBoard
 from keras.preprocessing.image import img_to_array
 from keras.optimizers import Adam
-from keras import regularizers
+from kerasmodel import img_classify_model
 
 IMAGE_SIZE = 64
 EPOCHS_SIZE = 30
 BATCH_SIZE = 32
-INIT_LR = 0.01 # 1e-3
+INIT_LR = 0.01  # 1e-3
 DECAY = 1e-5
-FREEZE_LAYER = 2
+FREEZE_LAYER = 0
+CLASSIFY = 102
 
 is_load_model = True
-model_save_part_path = r'data\model_vgg19_'
-model_save_path = r'data\model_vgg19.h5'
+model_save_part_path = r'data\model_ResNet50_'
+model_save_path = r'data\model_ResNet50.h5'
 path = r'data\train_data'
 a = pd.read_csv(r'data\train.csv')
 filesname = a['filename']
@@ -82,28 +81,6 @@ def get_top_k_label(preds, k=1):
         top_k = sess.run(top_k)
     top_k_label = vec2label(top_k)
     return top_k_label
-
-
-# 模型构建
-def build_model():
-    model_vgg = VGG19(include_top=False, weights="imagenet", input_shape=[IMAGE_SIZE, IMAGE_SIZE, 3])
-
-    for layer in model_vgg.layers[:-FREEZE_LAYER]:
-        layer.trainable = False
-    for layer in model_vgg.layers[-FREEZE_LAYER:]:
-        layer.trainable = True
-
-    model_self = Flatten(name='flatten')(model_vgg.output)
-    # model_self = Dense(1048, activation='relu', name='fc1')(model_self)
-    model_self = Dense(1048, activation='relu', name='fc1', kernel_regularizer=regularizers.l2(0.01),
-                       activity_regularizer=regularizers.l1(0.001))(model_self)
-    model_self = Dropout(0.5)(model_self)
-    # model_self = Dense(1048, activation='relu', name='fc2')(model_self)
-    # model_self = Dropout(0.5)(model_self)
-    model_self = Dense(102, activation='softmax')(model_self)
-    model_vgg_102 = Model(inputs=model_vgg.input, outputs=model_self, name='vgg19')
-    model_vgg_102.summary()
-    return model_vgg_102
 
 
 # 数据增强
@@ -192,7 +169,8 @@ if __name__ == '__main__':
     earlyStopping = EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto')
     callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
     print("创建模型")
-    model = build_model()
+    all_models = img_classify_model.PIC_CLASSIFY()
+    model = all_models.ResNet50_model([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY)
     # 载入模型
     if is_load_model:
         print("设定载入模型！！！")
