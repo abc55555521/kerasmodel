@@ -20,7 +20,7 @@ from kerasmodel import img_classify_model
 IMAGE_SIZE = 64
 EPOCHS_SIZE = 30
 BATCH_SIZE = 32
-INIT_LR = 0.01 # 1e-3
+INIT_LR =  1e-3
 DECAY = 1e-5
 MOMENTUM = 0.9
 FREEZE_LAYER = 0
@@ -86,14 +86,24 @@ def get_top_k_label(preds, k=1):
 
 # 数据增强
 train_datagen = ImageDataGenerator(
-    #rotation_range=30,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    shear_range=0.1,
-    zoom_range=0.1,
+    #随机转动的角度
+    rotation_range=30,
+    #随机水平偏移的幅度
+    width_shift_range=0.3,
+    #随机竖直偏移的幅度
+    height_shift_range=0.3,
+    #剪切变换的程度
+    shear_range=0.3,
+    #随机的放大
+    zoom_range=0.3,
+    #随机水平翻转
     horizontal_flip=True,
+    #布尔值，进行随机竖直翻转
+    vertical_flip=True,
     # featurewise_center=False,
     # zca_whitening=True,
+    # ‘constant’，‘nearest’，‘reflect’或‘wrap’之一
+    # 当进行变换时超出边界的点将根据本参数给定的方法进行处理
     fill_mode='nearest'
 )
 
