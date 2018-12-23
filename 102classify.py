@@ -17,18 +17,20 @@ from keras.preprocessing.image import img_to_array
 from keras.optimizers import Adam
 from kerasmodel import img_classify_model
 
-IMAGE_SIZE = 64
+KEY = "resnet"
+IMAGE_SIZE = 75
+# IMAGE_SIZE = 64
 EPOCHS_SIZE = 30
 BATCH_SIZE = 32
-INIT_LR =  1e-3
+INIT_LR = 0.01  # 1e-3
 DECAY = 1e-5
 MOMENTUM = 0.9
 FREEZE_LAYER = 0
 CLASSIFY = 102
 
 is_load_model = True
-model_save_part_path = r'data\model_VGG19_model_'
-model_save_path = r'data\model_VGG19_model.h5'
+model_save_part_path = r'data\model_' + KEY + '_model_'
+model_save_path = r'data\model_' + KEY + '_model.h5'
 path = r'data\train_data'
 a = pd.read_csv(r'data\train.csv')
 filesname = a['filename']
@@ -181,9 +183,9 @@ if __name__ == '__main__':
     earlyStopping = EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto')
     callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
     print("创建模型")
-    all_models = img_classify_model.PIC_CLASSIFY()
-    #model = all_models.ResNet50_model([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY)
-    model = all_models.VGG19_model([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY)
+    classify_model = img_classify_model.PIC_CLASSIFY([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY)
+    model = classify_model.getInstance(KEY)
+
     # 载入模型
     if is_load_model:
         print("设定载入模型！！！")
