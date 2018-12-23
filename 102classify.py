@@ -20,14 +20,15 @@ from kerasmodel import img_classify_model
 IMAGE_SIZE = 64
 EPOCHS_SIZE = 30
 BATCH_SIZE = 32
-INIT_LR = 0.01  # 1e-3
+INIT_LR = 0.01 # 1e-3
 DECAY = 1e-5
+MOMENTUM = 0.9
 FREEZE_LAYER = 0
 CLASSIFY = 102
 
 is_load_model = True
-model_save_part_path = r'data\model_ResNet50_'
-model_save_path = r'data\model_ResNet50.h5'
+model_save_part_path = r'data\model_VGG19_model_'
+model_save_path = r'data\model_VGG19_model.h5'
 path = r'data\train_data'
 a = pd.read_csv(r'data\train.csv')
 filesname = a['filename']
@@ -85,13 +86,14 @@ def get_top_k_label(preds, k=1):
 
 # 数据增强
 train_datagen = ImageDataGenerator(
-    rotation_range=30,
-    width_shift_range=0.3,
-    height_shift_range=0.3,
-    shear_range=0.3,
-    zoom_range=0.3,
+    #rotation_range=30,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    shear_range=0.1,
+    zoom_range=0.1,
     horizontal_flip=True,
-    zca_whitening=True,
+    # featurewise_center=False,
+    # zca_whitening=True,
     fill_mode='nearest'
 )
 
@@ -170,7 +172,8 @@ if __name__ == '__main__':
     callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
     print("创建模型")
     all_models = img_classify_model.PIC_CLASSIFY()
-    model = all_models.ResNet50_model([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY)
+    #model = all_models.ResNet50_model([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY)
+    model = all_models.VGG19_model([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY)
     # 载入模型
     if is_load_model:
         print("设定载入模型！！！")
@@ -179,7 +182,7 @@ if __name__ == '__main__':
     if is_load_model and os.path.exists(model_save_path):
         print("载入已有模型：" + model_save_path)
         model = load_model(model_save_path)
-    opt = SGD(lr=INIT_LR, decay=DECAY)
+    opt = SGD(lr=INIT_LR, momentum=MOMENTUM, decay=DECAY)
     #opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     for i in range(round(EPOCHS_SIZE / 5)):

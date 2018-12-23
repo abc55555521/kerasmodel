@@ -24,12 +24,12 @@ class PIC_CLASSIFY:
             layer.trainable = True
 
         model_self = Flatten(name='flatten')(model_vgg.output)
-        # model_self = Dense(1048, activation='relu', name='fc1')(model_self)
-        model_self = Dense(1048, activation='relu', name='fc1', kernel_regularizer=regularizers.l2(0.01),
-                           activity_regularizer=regularizers.l1(0.001))(model_self)
+        model_self = Dense(1024, activation='relu', name='fc1')(model_self)
+        #model_self = Dense(1048, activation='relu', name='fc1', kernel_regularizer=regularizers.l2(0.01),
+        #                   activity_regularizer=regularizers.l1(0.001))(model_self)
         model_self = Dropout(0.5)(model_self)
-        # model_self = Dense(1048, activation='relu', name='fc2')(model_self)
-        # model_self = Dropout(0.5)(model_self)
+        model_self = Dense(1024, activation='relu', name='fc2')(model_self)
+        model_self = Dropout(0.5)(model_self)
         model_self = Dense(CLASSIFY, activation='softmax')(model_self)
         model_vgg_102 = Model(inputs=model_vgg.input, outputs=model_self, name='VGG19')
         model_vgg_102.summary()
@@ -44,14 +44,14 @@ class PIC_CLASSIFY:
             for layer in model_vgg.layers[-FREEZE_LAYER:]:
                 layer.trainable = True
 
-        # model_self = Dense(1048, activation='relu', name='fc1')(model_vgg.output)
-        model_self = Dense(1048, activation='relu', name='fc1', kernel_regularizer=regularizers.l2(0.01),
-                           activity_regularizer=regularizers.l1(0.001))(model_vgg.output)
+        model_self = Dense(2048, activation='relu', name='fc1')(model_vgg.output)
+        # model_self = Dense(1048, activation='relu', name='fc1', kernel_regularizer=regularizers.l2(0.01),
+        #                    activity_regularizer=regularizers.l1(0.001))(model_vgg.output)
         model_self = Dropout(0.5)(model_self)
-        # model_self = Dense(1048, activation='relu', name='fc2')(model_self)
-        model_self = Dense(1048, activation='relu', name='fc2', kernel_regularizer=regularizers.l2(0.01),
-                           activity_regularizer=regularizers.l1(0.001))(model_self)
-        model_self = Dropout(0.5)(model_self)
+        #model_self = Dense(1048, activation='relu', name='fc2')(model_self)
+        # model_self = Dense(1048, activation='relu', name='fc2', kernel_regularizer=regularizers.l2(0.01),
+        #                    activity_regularizer=regularizers.l1(0.001))(model_self)
+        #model_self = Dropout(0.5)(model_self)
         # model_self = Dense(1048, activation='relu', name='fc2')(model_self)
         # model_self = Dropout(0.5)(model_self)
         model_self = Dense(CLASSIFY, activation='softmax')(model_self)
