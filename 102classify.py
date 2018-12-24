@@ -17,18 +17,21 @@ from keras.preprocessing.image import img_to_array
 from keras.optimizers import Adam
 from kerasmodel import img_classify_model
 
-KEY = "resnet"
-IMAGE_SIZE = 75
-# IMAGE_SIZE = 64
+KEY = "vgg19"
+# IMAGE_SIZE = 75
+IMAGE_SIZE = 128
 EPOCHS_SIZE = 30
 BATCH_SIZE = 32
-INIT_LR = 0.01  # 1e-3
+INIT_LR = 0.0001  # 1e-3
 DECAY = 1e-5
 MOMENTUM = 0.9
 FREEZE_LAYER = 0
+NB_IV3_LAYERS_TO_FREEZE = 172
+FC_SIZE = 1024
+DROPOUT = 0.5
 CLASSIFY = 102
 
-is_load_model = True
+is_load_model = False
 model_save_part_path = r'data\model_' + KEY + '_model_'
 model_save_path = r'data\model_' + KEY + '_model.h5'
 path = r'data\train_data'
@@ -90,23 +93,23 @@ def get_top_k_label(preds, k=1):
 train_datagen = ImageDataGenerator(
     #随机转动的角度
     rotation_range=30,
-    #随机水平偏移的幅度
-    width_shift_range=0.3,
-    #随机竖直偏移的幅度
-    height_shift_range=0.3,
-    #剪切变换的程度
-    shear_range=0.3,
-    #随机的放大
-    zoom_range=0.3,
-    #随机水平翻转
+    # 随机水平偏移的幅度
+    width_shift_range=0.2,
+    # 随机竖直偏移的幅度
+    height_shift_range=0.2,
+    # 剪切变换的程度
+    shear_range=0.2,
+    # 随机的放大
+    zoom_range=0.2,
+    # 随机水平翻转
     horizontal_flip=True,
-    #布尔值，进行随机竖直翻转
-    vertical_flip=True,
+    # 布尔值，进行随机竖直翻转
+    # vertical_flip=True,
     # featurewise_center=False,
     # zca_whitening=True,
     # ‘constant’，‘nearest’，‘reflect’或‘wrap’之一
     # 当进行变换时超出边界的点将根据本参数给定的方法进行处理
-    fill_mode='nearest'
+    # fill_mode='nearest'
 )
 
 tb = TensorBoard(log_dir='data/TensorBoard/logs_self',  # log 目录
@@ -183,7 +186,7 @@ if __name__ == '__main__':
     earlyStopping = EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto')
     callback = [history, tb, TensorBoard(log_dir='data/TensorBoard/logs')]
     print("创建模型")
-    classify_model = img_classify_model.PIC_CLASSIFY([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY)
+    classify_model = img_classify_model.PIC_CLASSIFY([IMAGE_SIZE, IMAGE_SIZE, 3], FREEZE_LAYER, CLASSIFY, FC_SIZE, DROPOUT)
     model = classify_model.getInstance(KEY)
 
     # 载入模型
@@ -194,7 +197,9 @@ if __name__ == '__main__':
     if is_load_model and os.path.exists(model_save_path):
         print("载入已有模型：" + model_save_path)
         model = load_model(model_save_path)
-    opt = SGD(lr=INIT_LR, momentum=MOMENTUM, decay=DECAY)
+
+    opt = SGD(lr=INIT_LR, momentum=MOMENTUM)
+    #opt = SGD(lr=INIT_LR, momentum=MOMENTUM, decay=DECAY)
     #opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     for i in range(round(EPOCHS_SIZE / 5)):
