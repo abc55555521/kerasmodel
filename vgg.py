@@ -17,7 +17,7 @@ test_path = r'data\test_data'
 # 训练集excel路径
 file = pd.read_csv(r'data\train.csv')
 # 导出文件路径
-export_file = r'data\test.csv'
+export_file = r'data\result.csv'
 filesname = file['filename']
 labels = file['label']
 IMAGE_HEIGHT = 128
