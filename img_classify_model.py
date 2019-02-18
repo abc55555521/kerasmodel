@@ -30,17 +30,20 @@ class PIC_CLASSIFY:
         print("创建VGG19模型")
         model_vgg = VGG19(include_top=False, weights="imagenet", input_shape=self.INPUT_SHAPE)
 
-        if self.FREEZE_LAYER != 0:
+        if self.FREEZE_LAYER > 0:
             for layer in model_vgg.layers[:-self.FREEZE_LAYER]:
                 layer.trainable = False
             for layer in model_vgg.layers[-self.FREEZE_LAYER:]:
                 layer.trainable = True
-        else:
+        elif self.FREEZE_LAYER == -1:
             for layer in model_vgg.layers:
                 layer.trainable = False
+        else:
+            for layer in model_vgg.layers:
+                layer.trainable = True
 
-        model_self = GlobalAveragePooling2D()(model_vgg.output)
-        #model_self = Flatten(name='flatten')(model_vgg.output)
+        # model_self = GlobalAveragePooling2D()(model_vgg.output)
+        model_self = Flatten(name='flatten')(model_vgg.output)
         model_self = Dense(self.FC_SIZE, activation='relu', name='fc1')(model_self)
         # model_self = Dense(self.FC_SIZE, activation='relu', name='fc1', kernel_regularizer=regularizers.l2(0.01),
         #                    activity_regularizer=regularizers.l1(0.001))(model_self)

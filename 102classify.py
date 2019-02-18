@@ -8,13 +8,12 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import load_model
-from keras.optimizers import SGD
+from keras.optimizers import SGD,Adam
 import matplotlib.pyplot as plt
 from keras.callbacks import Callback
 from keras.callbacks import EarlyStopping
 from keras.callbacks import TensorBoard
 from keras.preprocessing.image import img_to_array
-from keras.optimizers import Adam
 from kerasmodel import img_classify_model
 
 KEY = "vgg19"
@@ -22,12 +21,12 @@ KEY = "vgg19"
 IMAGE_SIZE = 128
 EPOCHS_SIZE = 30
 BATCH_SIZE = 32
-INIT_LR = 0.0001  # 1e-3
-DECAY = 1e-5
+INIT_LR = 0.1  # 1e-3
+DECAY = 1e-3
 MOMENTUM = 0.9
-FREEZE_LAYER = 0
+FREEZE_LAYER = 0  # 0全部参与训练   大约0从后向前冻结   等于-1都不训练
 NB_IV3_LAYERS_TO_FREEZE = 172
-FC_SIZE = 1024
+FC_SIZE = 2048
 DROPOUT = 0.5
 CLASSIFY = 102
 
@@ -90,9 +89,15 @@ def get_top_k_label(preds, k=1):
 
 
 # 数据增强
+# train_datagen = ImageDataGenerator(width_shift_range=0.2,
+#                                    height_shift_range=0.2,
+#                                    shear_range=0.2,
+#                                    zoom_range=0.2,
+#                                    horizontal_flip=True,
+#                                    fill_mode='nearest')
 train_datagen = ImageDataGenerator(
     #随机转动的角度
-    rotation_range=30,
+    #rotation_range=30,
     # 随机水平偏移的幅度
     width_shift_range=0.2,
     # 随机竖直偏移的幅度
@@ -198,10 +203,14 @@ if __name__ == '__main__':
         print("载入已有模型：" + model_save_path)
         model = load_model(model_save_path)
 
-    opt = SGD(lr=INIT_LR, momentum=MOMENTUM)
+    #opt = SGD(lr=INIT_LR, momentum=MOMENTUM)
     #opt = SGD(lr=INIT_LR, momentum=MOMENTUM, decay=DECAY)
-    #opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE)
-    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    opt = Adam() #lr=INIT_LR, decay=INIT_LR / EPOCHS_SIZE
+    #model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer=SGD(),
+                            metrics=['accuracy'])
+
+    #model.summary()
     for i in range(round(EPOCHS_SIZE / 5)):
         print("EPOCHS_SIZE：" + str(EPOCHS_SIZE))
         print("第" + str(i + 1) + "个5轮epochs开始")
